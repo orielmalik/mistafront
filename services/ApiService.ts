@@ -23,18 +23,16 @@ export class ApiService {
 
   // Centralized endpoints
   private endpoints: Record<string, string> = {
-    CREATE_HUMAN: `/human`,
-    GET_ALL_HUMANS: `/human`,
-    DELETE_ALL_HUMANS: `/human`,
-    CREATE_GRAPH: `/graph`,
-    LOAD_GRAPH: `/graph`,
+   HUMAN: `/human`,
+    GRAPH: "/graph",//CREATE OR LOAD
+    LIST_GRAPHS: "/graph/graphs",
     CREATE_TEST: `/tests`,
     GET_TEST_QUESTIONS: `/tests/testall`,
     DELETE_ALL_TESTS: `/tests`,
     SAVE_GRAPH: `/graphs/save`,
   }
 
-  constructor(baseUrl = "http://localhost:8085/mistaa") {
+  constructor(baseUrl =baseUrl = process.env.NEXT_PUBLIC_API_BASE!) {
     this.baseUrl = baseUrl
   }
 
@@ -106,18 +104,51 @@ export class ApiService {
 
   // Convenience methods
   public async login<T>(email: string, password: string) {
-    return this.post<T>(`${encodeURIComponent(email)}/${encodeURIComponent(password)}`, null);
+    return this.get<T>(`${this.endpoints.HUMAN}/${encodeURIComponent(email)}/${encodeURIComponent(password)}`);
   }
   public async register<T>(userData: any) {
-    return this.post<T>(this.endpoints.CREATE_HUMAN, userData)
+    return this.post<T>(this.endpoints.HUMAN, userData)
   }
 
-  public async saveGraph<T>(graphData: any) {
-    return this.post<T>(this.endpoints.SAVE_GRAPH, graphData)
+  public async createGraph(graphId: string, graphData: any) {
+    return this.post<void>(`${this.endpoints.GRAPH}/${graphId}`, graphData)
   }
 
-  public async loadGraph<T>(graphId: string) {
-    return this.get<T>(this.endpoints.LOAD_GRAPH, { id: graphId })
+  public async updateGraph(graphId: string, graphData: any) {
+    return this.put<void>(`${this.endpoints.GRAPH}/${graphId}`, graphData)
+  }
+
+  public async loadGraph(operatorId: string, graphId: string) {
+    return this.get<any>(`${this.endpoints.GRAPH}/${operatorId}/${graphId}`)
+  }
+
+  public async listGraphIds(operatorId: string): Promise<string[]> {
+    const response = await fetch(this.getUrl(this.endpoints.GRAPHS, { operatorId }), {
+      headers: { Accept: "text/event-stream" },
+    })
+
+    if (!response.ok || !response.body) return []
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    const ids: string[] = []
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        for (const line of chunk.split("\n")) {
+          if (line.startsWith("data:")) {
+            const id = line.slice(5).trim()
+            if (id) ids.push(id)
+          }
+        }
+      }
+    } catch {
+      return ids
+    }
+    return ids
   }
 }
 

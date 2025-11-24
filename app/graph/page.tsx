@@ -27,7 +27,7 @@ export default function GraphPage() {
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null)
   const [isDark, setIsDark] = useState(false)
   const [isVertexMode, setIsVertexMode] = useState(false)
-  const canvasRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLDivElement>()
 
   const addNode = useCallback((type: Node["type"]) => {
     const id = `node-${Date.now()}`

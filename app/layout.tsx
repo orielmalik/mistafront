@@ -1,24 +1,15 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Geist } from "next/font/google"
+// app/layout.tsx
 import "./globals.css"
+import { AuthProvider } from "@/context/AuthContext"
 
-const geist = Geist({ subsets: ["latin"] })
-
-export const metadata: Metadata = {
-  title: "Graph Builder",
-  description: "Modern graph builder interface",
-    generator: 'v0.app'
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${geist.className} antialiased`}>{children}</body>
-    </html>
+      <html lang="en" dir="ltr">
+      <body className="min-h-screen bg-gray-50 dark:bg-black">
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+      </body>
+      </html>
   )
 }

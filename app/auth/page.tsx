@@ -1,24 +1,23 @@
+// app/auth/page.tsx
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"
-
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+import { apiService } from "@/services/ApiService"
+import {useAuth, User} from "@/context/AuthContext"
+import { useRouter } from "next/navigation"
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
-
-  // Login state
-  const [loginData, setLoginData] = useState({ email: "", password: "" })
+  const [loginEmail, setLoginEmail] = useState("")
+  const [loginPassword, setLoginPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState("")
 
-  // Register state
-  const [registerData, setRegisterData] = useState({
+  const [reg, setReg] = useState({
     username: "",
     email: "",
     password: "",
@@ -27,424 +26,213 @@ export default function AuthPage() {
     position: true,
     birthdate: "",
   })
-  const [passwordStrength, setPasswordStrength] = useState(0)
 
-  const calculatePasswordStrength = (pwd: string) => {
-    let strength = 0
-    if (pwd.length >= 8) strength += 25
-    if (pwd.length >= 12) strength += 25
-    if (/[A-Z]/.test(pwd)) strength += 25
-    if (/[0-9!@#$%^&*]/.test(pwd)) strength += 25
-    return strength
+  const [passwordStrength, setPasswordStrength] = useState(0)
+  const [regErrors, setRegErrors] = useState<Record<string, string>>({})
+  const [regLoading, setRegLoading] = useState(false)
+
+  const { login } = useAuth()
+  const router = useRouter()
+
+  const calcStrength = (pwd: string) => {
+    let s = 0
+    if (pwd.length >= 8) s += 25
+    if (pwd.length >= 12) s += 25
+    if (/[A-Z]/.test(pwd)) s += 25
+    if (/[0-9!@#$%^&*]/.test(pwd)) s += 25
+    return s
+  }
+
+  const handlePhone = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nums = e.target.value.replace(/\D/g, "").slice(0, 10)
+    setReg({ ...reg, phoneNumber: nums })
+  }
+
+  const handleBirthdate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let nums = e.target.value.replace(/\D/g, "").slice(0, 8)
+    if (nums.length > 4) nums = `${nums.slice(0, 2)}-${nums.slice(2, 4)}-${nums.slice(4)}`
+    else if (nums.length > 2) nums = `${nums.slice(0, 2)}-${nums.slice(2)}`
+    setReg({ ...reg, birthdate: nums })
   }
 
   const validateLogin = () => {
-    const newErrors: Record<string, string> = {}
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginData.email)) {
-      newErrors.email = "Invalid email format"
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+      setLoginError("Invalid email address")
+      return false
     }
-    if (loginData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters"
+    if (loginPassword.length < 8) {
+      setLoginError("Password must be at least 8 characters")
+      return false
     }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setLoginError("")
+    return true
   }
 
   const validateRegister = () => {
-    const newErrors: Record<string, string> = {}
-    if (!/^[a-zA-Z0-9_]{3,20}$/.test(registerData.username)) {
-      newErrors.username = "Username: 3-20 chars, alphanumeric + underscore only"
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email)) {
-      newErrors.email = "Invalid email format"
-    }
-    if (registerData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters"
-    }
-    if (!/^05\d{8}$/.test(registerData.phoneNumber)) {
-      newErrors.phoneNumber = "Invalid Israeli phone format (05XXXXXXXX)"
-    }
-    if (!registerData.birthdate) {
-      newErrors.birthdate = "Birthdate is required"
-    }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    const err: Record<string, string> = {}
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(reg.username)) err.username = "Username: 3–20 chars, letters, numbers & underscore only"
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reg.email)) err.email = "Invalid email address"
+    if (reg.password.length < 8) err.password = "Password must be at least 8 characters"
+    if (!/^05\d{8}$/.test(reg.phoneNumber)) err.phoneNumber = "Invalid Israeli phone (05XXXXXXXXX)"
+    if (!reg.birthdate || !/^\d{2}-\d{2}-\d{4}$/.test(reg.birthdate)) err.birthdate = "Birthdate must be DD-MM-YYYY"
+    setRegErrors(err)
+    return Object.keys(err).length === 0
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validateLogin()) return
-
-    setLoading(true)
-    const response = { data: { email: loginData.email }, error: null }
-
-    if (response.error) {
-      setErrors({ submit: "Login failed. Please check your credentials." })
-    } else {
-      console.log("[v0] Mock login successful with email:", loginData.email)
-      alert(`Login successful for ${loginData.email}!`)
+    setLoginLoading(true)
+    try {
+      const response = await apiService.login(loginEmail, loginPassword)
+      const userData = response.data
+      login(userData)
+      router.push("/dashboard")
+    } catch (err: any) {
+      setLoginError(err.message || "Login failed")
+    } finally {
+      setLoginLoading(false)
     }
-    setLoading(false)
   }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validateRegister()) return
-
-    setLoading(true)
-    const userData = {
-      id: Math.random().toString(36).slice(2, 9),
-      username: registerData.username,
-      password: registerData.password,
-      email: registerData.email,
-      gender: registerData.gender,
-      position: registerData.position,
-      phoneNumber: registerData.phoneNumber,
-      birthdate: registerData.birthdate,
-    }
-
-    const response = { data: userData, error: null }
-
-    if (response.error) {
-      setErrors({ submit: "Registration failed. Please try again." })
-    } else {
-      console.log("[v0] Mock registration successful. User data:", userData)
-      alert(`Account created for ${registerData.username}!`)
-    }
-    setLoading(false)
-  }
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "")
-    if (value.length > 10) value = value.slice(0, 10)
-    setRegisterData({ ...registerData, phoneNumber: value })
-  }
-
-  const handleBirthdateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "")
-    if (value.length <= 2) {
-      setRegisterData({ ...registerData, birthdate: value })
-    } else if (value.length <= 4) {
-      const dayMonth = value.slice(0, 2) + "-" + value.slice(2)
-      setRegisterData({ ...registerData, birthdate: dayMonth })
-    } else if (value.length <= 8) {
-      const day = value.slice(0, 2)
-      const month = value.slice(2, 4)
-      const year = value.slice(4, 8)
-      setRegisterData({ ...registerData, birthdate: `${day}-${month}-${year}` })
+    setRegLoading(true)
+    try {
+      const payload = {
+        username: reg.username,
+        email: reg.email,
+        password: reg.password,
+        phoneNumber: reg.phoneNumber,
+        birthdate: reg.birthdate,
+        gender: reg.gender,
+        position: reg.position,
+        more: {},
+      }
+      await apiService.register(payload)
+      const tempUser = { ...reg, id: reg.email }
+      login(tempUser)
+      router.push("/dashboard")
+    } catch (err: any) {
+      setRegErrors({ submit: err.message || "Registration failed" })
+    } finally {
+      setRegLoading(false)
     }
   }
-
-  const passwordStrengthPercent = calculatePasswordStrength(registerData.password)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-black dark:via-slate-900 dark:to-black">
-      <Link href="/">
-        <motion.button
-          className="absolute top-6 left-6 flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-          whileHover={{ x: -4 }}
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Back
-        </motion.button>
-      </Link>
+      <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-black dark:via-slate-900 dark:to-black">
+        <Link href="/">
+          <motion.button className="absolute top-6 left-6 flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors" whileHover={{ x: -6 }}>
+            <ArrowLeft className="w-5 h-5" />
+            Back
+          </motion.button>
+        </Link>
 
-      <div className="flex items-center justify-center min-h-screen px-4 py-8">
-        <motion.div
-          className="w-full max-w-md"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-        >
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
-            <div className="flex gap-2 mb-8">
-              <button
-                onClick={() => {
-                  setIsLogin(true)
-                  setErrors({})
-                }}
-                className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                  isLogin
-                    ? "bg-blue-600 text-white shadow-lg"
-                    : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                Login
-              </button>
-              <button
-                onClick={() => {
-                  setIsLogin(false)
-                  setErrors({})
-                }}
-                className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                  !isLogin
-                    ? "bg-purple-600 text-white shadow-lg"
-                    : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                Register
-              </button>
-            </div>
+        <div className="flex min-h-screen items-center justify-center px-4 py-12">
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="w-full max-w-md">
+            <div className="rounded-2xl bg-white dark:bg-slate-800 p-8 shadow-2xl">
+              <div className="mb-8 flex gap-3">
+                <button onClick={() => setIsLogin(true)} className={`flex-1 rounded-lg py-3 font-bold transition-all ${isLogin ? "bg-blue-600 text-white shadow-lg" : "bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300"}`}>
+                  Login
+                </button>
+                <button onClick={() => setIsLogin(false)} className={`flex-1 rounded-lg py-3 font-bold transition-all ${!isLogin ? "bg-purple-600 text-white shadow-lg" : "bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300"}`}>
+                  Register
+                </button>
+              </div>
 
-            {isLogin ? (
-              <>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
-                <p className="text-gray-600 dark:text-gray-400 mb-8">Sign in to your account</p>
-
-                <form onSubmit={handleLogin} className="space-y-4">
+              {isLogin ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={loginData.email}
-                      onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                      className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
-                        errors.email
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                      }`}
-                      placeholder="you@example.com"
-                    />
-                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={loginData.password}
-                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                        className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 pr-10 ${
-                          errors.password
-                            ? "border-red-500 focus:ring-red-500"
-                            : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                        }`}
-                        placeholder="••••••••"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                  </div>
-
-                  {errors.submit && <p className="text-red-500 text-sm">{errors.submit}</p>}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 mt-6"
-                  >
-                    {loading ? "Signing in..." : "Sign In"}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Create Account</h1>
-                <p className="text-gray-600 dark:text-gray-400 mb-8">Join GraphStudio Pro today</p>
-
-                <form onSubmit={handleRegister} className="space-y-4 max-h-96 overflow-y-auto">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username</label>
-                    <input
-                      type="text"
-                      value={registerData.username}
-                      onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
-                      className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
-                        errors.username
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                      }`}
-                      placeholder="john_doe"
-                    />
-                    {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={registerData.email}
-                      onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                      className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 ${
-                        errors.email
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                      }`}
-                      placeholder="you@example.com"
-                    />
-                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={registerData.password}
-                        onChange={(e) => {
-                          setRegisterData({ ...registerData, password: e.target.value })
-                          setPasswordStrength(calculatePasswordStrength(e.target.value))
-                        }}
-                        className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 pr-10 ${
-                          errors.password
-                            ? "border-red-500 focus:ring-red-500"
-                            : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                        }`}
-                        placeholder="••••••••"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {registerData.password && (
-                      <div className="mt-2">
-                        <div className="flex h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                          <div
-                            className={`transition-all ${
-                              passwordStrengthPercent <= 25
-                                ? "bg-red-500"
-                                : passwordStrengthPercent <= 50
-                                  ? "bg-yellow-500"
-                                  : passwordStrengthPercent <= 75
-                                    ? "bg-blue-500"
-                                    : "bg-green-500"
-                            }`}
-                            style={{ width: `${passwordStrengthPercent}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {passwordStrengthPercent <= 25
-                            ? "Weak"
-                            : passwordStrengthPercent <= 50
-                              ? "Fair"
-                              : passwordStrengthPercent <= 75
-                                ? "Good"
-                                : "Strong"}
-                        </p>
+                    <h1 className="mb-2 text-3xl font-bold text-gray-900 dark:text-white">Welcome Back</h1>
+                    <p className="mb-8 text-gray-600 dark:text-gray-400">Sign in to continue</p>
+                    <form onSubmit={handleLogin} className="space-y-5">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                        <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="you@example.com" required />
                       </div>
-                    )}
-                    {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Phone Number (IL)
-                    </label>
-                    <input
-                      type="tel"
-                      value={registerData.phoneNumber}
-                      onChange={handlePhoneChange}
-                      className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 font-mono ${
-                        errors.phoneNumber
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                      }`}
-                      placeholder="05XXXXXXXX"
-                    />
-                    {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Birthdate (DD-MM-YYYY)
-                    </label>
-                    <input
-                      type="text"
-                      value={registerData.birthdate}
-                      onChange={handleBirthdateChange}
-                      className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 font-mono ${
-                        errors.birthdate
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-gray-300 dark:border-gray-600 focus:ring-blue-500"
-                      }`}
-                      placeholder="15-01-1990"
-                      maxLength={10}
-                    />
-                    {errors.birthdate && <p className="text-red-500 text-xs mt-1">{errors.birthdate}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Gender</label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setRegisterData({ ...registerData, gender: true })}
-                        className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                          registerData.gender
-                            ? "bg-blue-600 text-white shadow-lg"
-                            : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        Male
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                        <div className="relative mt-1">
+                          <input type={showPassword ? "text" : "password"} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 px-4 py-2.5 pr-10 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" required />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-3 flex items-center text-gray-500">
+                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
+                      </div>
+                      {loginError && <p className="text-sm text-red-500">{loginError}</p>}
+                      <button type="submit" disabled={loginLoading} className="w-full rounded-lg bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:opacity-60 transition">
+                        {loginLoading ? "Signing in..." : "Sign In"}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setRegisterData({ ...registerData, gender: false })}
-                        className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                          !registerData.gender
-                            ? "bg-pink-600 text-white shadow-lg"
-                            : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        Female
-                      </button>
-                    </div>
+                    </form>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Position</label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setRegisterData({ ...registerData, position: false })}
-                        className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                          !registerData.position
-                            ? "bg-green-600 text-white shadow-lg"
-                            : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        User
+              ) : (
+                  <>
+                    <h1 className="mb-2 text-3xl font-bold text-gray-900 dark:text-white">Create Account</h1>
+                    <p className="mb-8 text-gray-600 dark:text-gray-400">Join GraphStudio Pro today</p>
+                    <form onSubmit={handleRegister} className="space-y-5 max-h-96 overflow-y-auto pr-1">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                        <input type="text" value={reg.username} onChange={(e) => setReg({ ...reg, username: e.target.value })} className={`mt-1 w-full rounded-lg border ${regErrors.username ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-slate-700 px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500`} placeholder="john_doe" />
+                        {regErrors.username && <p className="mt-1 text-xs text-red-500">{regErrors.username}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                        <input type="email" value={reg.email} onChange={(e) => setReg({ ...reg, email: e.target.value })} className={`mt-1 w-full rounded-lg border ${regErrors.email ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-slate-700 px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500`} placeholder="you@example.com" />
+                        {regErrors.email && <p className="mt-1 text-xs text-red-500">{regErrors.email}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                        <div className="relative mt-1">
+                          <input type={showPassword ? "text" : "password"} value={reg.password} onChange={(e) => { setReg({ ...reg, password: e.target.value }); setPasswordStrength(calcStrength(e.target.value)) }} className={`w-full rounded-lg border ${regErrors.password ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-slate-700 px-4 py-2.5 pr-10 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500`} placeholder="••••••••" />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-3 flex items-center text-gray-500">
+                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
+                        {reg.password && (
+                            <div className="mt-2">
+                              <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+                                <div className={`h-full transition-all duration-300 ${passwordStrength <= 25 ? "bg-red-500" : passwordStrength <= 50 ? "bg-yellow-500" : passwordStrength <= 75 ? "bg-blue-500" : "bg-green-500"}`} style={{ width: `${passwordStrength}%` }} />
+                              </div>
+                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{passwordStrength <= 25 ? "Weak" : passwordStrength <= 50 ? "Fair" : passwordStrength <= 75 ? "Good" : "Strong"}</p>
+                            </div>
+                        )}
+                        {regErrors.password && <p className="mt-1 text-xs text-red-500">{regErrors.password}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone (IL)</label>
+                        <input type="tel" value={reg.phoneNumber} onChange={handlePhone} className={`mt-1 w-full rounded-lg border ${regErrors.phoneNumber ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-slate-700 px-4 py-2.5 font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500`} placeholder="0521234567" />
+                        {regErrors.phoneNumber && <p className="mt-1 text-xs text-red-500">{regErrors.phoneNumber}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Birthdate (DD-MM-YYYY)</label>
+                        <input type="text" value={reg.birthdate} onChange={handleBirthdate} maxLength={10} className={`mt-1 w-full rounded-lg border ${regErrors.birthdate ? "border-red-500" : "border-gray-300 dark:border-gray-600"} bg-white dark:bg-slate-700 px-4 py-2.5 font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500`} placeholder="15-01-1990" />
+                        {regErrors.birthdate && <p className="mt-1 text-xs text-red-500">{regErrors.birthdate}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Gender</label>
+                        <div className="mt-2 flex gap-3">
+                          <button type="button" onClick={() => setReg({ ...reg, gender: true })} className={`flex-1 rounded-lg py-2.5 font-bold transition ${reg.gender ? "bg-blue-600 text-white shadow-md" : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"}`}>Male</button>
+                          <button type="button" onClick={() => setReg({ ...reg, gender: false })} className={`flex-1 rounded-lg py-2.5 font-bold transition ${!reg.gender ? "bg-pink-600 text-white shadow-md" : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"}`}>Female</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
+                        <div className="mt-2 flex gap-3">
+                          <button type="button" onClick={() => setReg({ ...reg, position: false })} className={`flex-1 rounded-lg py-2.5 font-bold transition ${!reg.position ? "bg-green-600 text-white shadow-md" : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"}`}>User</button>
+                          <button type="button" onClick={() => setReg({ ...reg, position: true })} className={`flex-1 rounded-lg py-2.5 font-bold transition ${reg.position ? "bg-purple-600 text-white shadow-md" : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"}`}>Operator</button>
+                        </div>
+                      </div>
+                      {regErrors.submit && <p className="text-sm text-red-500 text-center font-medium">{regErrors.submit}</p>}
+                      <button type="submit" disabled={regLoading} className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 py-3 font-bold text-white hover:from-blue-700 hover:to-purple-700 disabled:opacity-60 transition mt-6">
+                        {regLoading ? "Creating account..." : "Create Account"}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setRegisterData({ ...registerData, position: true })}
-                        className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                          registerData.position
-                            ? "bg-purple-600 text-white shadow-lg"
-                            : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        Operator
-                      </button>
-                    </div>
-                  </div>
-
-                  {errors.submit && <p className="text-red-500 text-sm">{errors.submit}</p>}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 mt-6"
-                  >
-                    {loading ? "Creating account..." : "Create Account"}
-                  </button>
-                </form>
-              </>
-            )}
-          </div>
-        </motion.div>
+                    </form>
+                  </>
+              )}
+            </div>
+          </motion.div>
+        </div>
       </div>
-    </div>
   )
 }

@@ -1,4 +1,4 @@
-export const API_BASE = "https://localhost:8085/mistaa";
+export const API_BASE =process.env.NEXT_PUBLIC_API_BASE;
 
 export const API_ENDPOINTS = {
   CREATE_GRAPH: `${API_BASE}/graph`,
