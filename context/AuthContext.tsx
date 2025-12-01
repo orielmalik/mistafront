@@ -15,7 +15,7 @@ export interface User {
 
 interface AuthContextType {
     user: User | null
-    login: (userData: { email: string; username: string }) => void
+    login: (userData: T | null) => void
     logout: () => void
     isOperator: boolean
 }

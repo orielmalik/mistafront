@@ -2,7 +2,7 @@
 "use client"
 
 import type { Node } from "@/types/graph"
-import { Trash2, Link2 } from "lucide-react"
+import { Trash2, Link2, Lock } from "lucide-react"
 import { useState } from "react"
 
 interface GraphNodeProps {
@@ -21,7 +21,7 @@ const COLORS = {
     personality: { bg: "bg-purple-600", border: "border-purple-500", glow: "rgb(168, 85, 247)" },
     dataEntry: { bg: "bg-green-600", border: "border-green-500", glow: "rgb(34, 197, 94)" },
     chat: { bg: "bg-orange-600", border: "border-orange-500", glow: "rgb(249, 115, 22)" },
-    goal: { bg: "bg-red-600", border: "border-red-500", glow: "rgb(239, 68, 68)" },
+    goal: { bg: "bg-emerald-600", border: "border-emerald-500", glow: "rgb(34, 197, 94)" },
 } as const
 
 const LABELS = {
@@ -29,7 +29,7 @@ const LABELS = {
     personality: "PI",
     dataEntry: "DE",
     chat: "CH",
-    goal: "G",
+    goal: "GOAL",
 } as const
 
 export default function GraphNode({
@@ -40,10 +40,10 @@ export default function GraphNode({
                                       onStartConnection,
                                       onCompleteConnection,
                                       onDelete,
-                                      isDark = false,
                                   }: GraphNodeProps) {
     const [showTooltip, setShowTooltip] = useState(false)
     const c = COLORS[node.type]
+    const isGoalNode = node.type === "goal"
 
     return (
         <div
@@ -51,7 +51,7 @@ export default function GraphNode({
             className={`
         relative w-72 p-6 rounded-2xl border-4 shadow-2xl cursor-pointer select-none transition-all
         ${c.border} ${isSelected ? "scale-105 ring-4 ring-yellow-400 ring-offset-4 ring-offset-transparent" : "hover:scale-105"}
-        ${isConnecting ? "animate-pulse ring-8 ring-yellow-400" : ""}
+        ${isConnecting && !isGoalNode ? "animate-pulse ring-8 ring-yellow-400" : ""}
       `}
             style={{
                 backgroundColor: "var(--card)",
@@ -66,23 +66,42 @@ export default function GraphNode({
                 </div>
 
                 <div className="flex gap-3">
-                    <button
-                        onMouseEnter={() => setShowTooltip(true)}
-                        onMouseLeave={() => setShowTooltip(false)}
-                        onMouseDown={(e) => { e.stopPropagation(); onStartConnection() }}
-                        onMouseUp={(e) => { e.stopPropagation(); onCompleteConnection() }}
-                        className={`p-3 rounded-xl transition-all ${isConnecting ? "bg-yellow-400 text-black scale-125 shadow-xl" : "bg-primary/10 hover:bg-primary/20"}`}
-                    >
-                        <Link2 className="w-6 h-6" />
-                    </button>
-                    {showTooltip && (
-                        <div className="absolute top-16 right-0 bg-black text-white text-xs px-3 py-1 rounded-lg z-50">
+                    {/* כפתור חיבור – רק אם לא Goal */}
+                    {!isGoalNode && (
+                        <button
+                            onMouseEnter={() => setShowTooltip(true)}
+                            onMouseLeave={() => setShowTooltip(false)}
+                            onMouseDown={(e) => {
+                                e.stopPropagation()
+                                onStartConnection() // ← רק מתחיל
+                            }}
+                            // הסרנו את onMouseUp – לא סוגר חיבור כאן!
+                            className={`p-3 rounded-xl transition-all ${isConnecting ? "bg-yellow-400 text-black scale-125 shadow-xl" : "bg-primary/10 hover:bg-primary/20"}`}
+                        >
+                            <Link2 className="w-6 h-6" />
+                        </button>
+                    )}
+
+                    {/* מנעול ל-Goal */}
+                    {isGoalNode && (
+                        <div className="p-3 rounded-xl bg-emerald-600/20 border-2 border-emerald-500">
+                            <Lock className="w-6 h-6 text-emerald-600" />
+                        </div>
+                    )}
+
+                    {/* טולטיפ */}
+                    {showTooltip && !isGoalNode && (
+                        <div className="absolute top-16 right-0 bg-black text-white text-xs px-3 py-1 rounded-lg z-50 whitespace-nowrap">
                             Click and drag to connect
                         </div>
                     )}
 
+                    {/* מחיקה */}
                     <button
-                        onClick={(e) => { e.stopPropagation(); onDelete() }}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onDelete()
+                        }}
                         className="p-3 rounded-xl hover:bg-red-500/20 text-red-600 transition-all"
                     >
                         <Trash2 className="w-6 h-6" />
@@ -90,7 +109,6 @@ export default function GraphNode({
                 </div>
             </div>
 
-            {/* רק תצוגה – כל העריכה בפאנל הימני */}
             <div className="space-y-3">
                 {node.data.header ? (
                     <h3 className="text-2xl font-bold">{node.data.header}</h3>
@@ -98,11 +116,18 @@ export default function GraphNode({
                     <p className="text-muted-foreground italic">Click to edit...</p>
                 )}
                 <p className="text-xl font-bold text-primary">{node.data.label || "Untitled Node"}</p>
+
+                {node.data.goalName && (
+                    <p className="text-lg font-bold text-emerald-600">{node.data.goalName}</p>
+                )}
+
                 {node.data.description && (
                     <p className="text-sm text-muted-foreground line-clamp-3">{node.data.description}</p>
                 )}
+
                 <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-4">
                     {node.type}
+                    {isGoalNode && " · Terminal"}
                 </p>
             </div>
         </div>

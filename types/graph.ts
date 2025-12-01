@@ -66,4 +66,6 @@ export interface Graph {
   createdAt: string
   updatedAt: string
   thumbnail?: string
+  goalName?:string
+  goalDescription?:string
 }

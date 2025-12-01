@@ -4,7 +4,7 @@
 import type { Node } from "@/types/graph"
 import { Trash2 } from "lucide-react"
 
-// קבצים שכבר קיימים אצלך ב-./editors
+import GoalEditor from "./editors/goal-editor"
 import QuestionnaireEditor from "./editors/questionnaire-editor"
 import DataEntryEditor from "./editors/data-entry-editor"
 import ChatEditor from "./editors/chat-editor"
@@ -68,7 +68,7 @@ export default function Editor({ node, onUpdateNode, onDeleteNode }: EditorProps
                 {node.type === "personality" && (
                     <PersonalityEditor node={node} onUpdate={handleUpdate} />
                 )}
-
+                {node.type === "goal" && <GoalEditor node={node} onUpdate={handleUpdate} />}
                 {![
                     "questionnaire",
                     "dataEntry",

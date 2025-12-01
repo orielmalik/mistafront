@@ -1,7 +1,7 @@
 // components/canvas.tsx
 "use client"
 
-import { forwardRef, useRef, useState } from "react"
+import { forwardRef, useRef, useState, useEffect } from "react"
 import type React from "react"
 import type { Node, Edge } from "@/types/graph"
 import GraphNode from "@/components/graph-node"
@@ -17,6 +17,7 @@ interface CanvasProps {
     onUpdateNodeData: (id: string, data: Partial<Node["data"]>) => void
     onStartConnection: (nodeId: string) => void
     onCompleteConnection: (nodeId: string) => void
+    onCancelConnection: () => void
     onDeleteNode: (id: string) => void
     onDeleteEdge: (id: string) => void
     onUpdateEdgeWeight: (edgeId: string, weight: number) => void
@@ -35,6 +36,7 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
             onUpdateNodeData,
             onStartConnection,
             onCompleteConnection,
+            onCancelConnection,
             onDeleteNode,
             onDeleteEdge,
             onUpdateEdgeWeight,
@@ -51,7 +53,7 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                 personality: "#a855f7",
                 dataEntry: "#22c55e",
                 chat: "#f97316",
-                goal: "#ef4444",
+                goal: "#10b981", // ירוק אמרלד ל-Goal
             }
             return colors[type] ?? "#3b82f6"
         }
@@ -63,7 +65,7 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         }
 
         const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-            const canvasElement = ref && typeof ref !== 'function' ? ref.current : null
+            const canvasElement = ref && typeof ref !== "function" ? ref.current : null
             if (!canvasElement) return
 
             const rect = canvasElement.getBoundingClientRect()
@@ -81,13 +83,28 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                     })
                 }
             }
-
         }
 
         const handleMouseUp = () => {
             draggedNode.current = null
             setTempLine(null)
         }
+
+        // === מקשי קיצור: Escape = ביטול חיבור, Delete = מחיקת קשת ===
+        useEffect(() => {
+            const handleKeyDown = (e: KeyboardEvent) => {
+                if (e.key === "Escape" && connectingFromId) {
+                    onCancelConnection()
+                }
+                if ((e.key === "Delete" || e.key === "Backspace") && hoveredEdge) {
+                    onDeleteEdge(hoveredEdge)
+                    setHoveredEdge(null)
+                }
+            }
+
+            window.addEventListener("keydown", handleKeyDown)
+            return () => window.removeEventListener("keydown", handleKeyDown)
+        }, [connectingFromId, hoveredEdge, onCancelConnection, onDeleteEdge])
 
         return (
             <div
@@ -101,6 +118,7 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                         onSelectNode(null)
                     }
                 }}
+                tabIndex={0} // חשוב! כדי שנוכל לקלוט מקלדת
             >
                 {/* SVG – קשתות */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none">
@@ -123,9 +141,9 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                                     <circle
                                         cx={midX}
                                         cy={midY}
-                                        r={12}
+                                        r={14}
                                         fill="#ef4444"
-                                        className="cursor-pointer"
+                                        className="cursor-pointer animate-pulse"
                                         onClick={(e) => {
                                             e.stopPropagation()
                                             onDeleteEdge(edge.id)
@@ -137,10 +155,10 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                                 <path
                                     d={bezier(x1, y1, x2, y2)}
                                     stroke={getColor(fromNode.type)}
-                                    strokeWidth={hoveredEdge === edge.id ? 6 : 4}
+                                    strokeWidth={hoveredEdge === edge.id ? 7 : 4}
                                     fill="none"
                                     markerEnd={`url(#arrow-${fromNode.type})`}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer transition-all"
                                     onMouseEnter={() => setHoveredEdge(edge.id)}
                                     onMouseLeave={() => setHoveredEdge(null)}
                                     onClick={(e) => {
@@ -158,10 +176,10 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                                 {/* תווית משקל */}
                                 <text
                                     x={midX}
-                                    y={midY - 10}
+                                    y={midY - 12}
                                     textAnchor="middle"
                                     fill={isDark ? "#e2e8f0" : "#1e293b"}
-                                    fontSize="14"
+                                    fontSize="16"
                                     fontWeight="bold"
                                     pointerEvents="none"
                                 >
@@ -171,6 +189,7 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                         )
                     })}
 
+                    {/* קשת זמנית בזמן גרירה */}
                     {connectingFromId && tempLine && (
                         (() => {
                             const fromNode = nodes.find((n) => n.id === connectingFromId)
@@ -179,9 +198,10 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                                 <path
                                     d={bezier(fromNode.position.x, fromNode.position.y, tempLine.x, tempLine.y)}
                                     stroke={getColor(fromNode.type)}
-                                    strokeWidth={4}
+                                    strokeWidth={5}
                                     fill="none"
-                                    strokeDasharray="10,5"
+                                    strokeDasharray="12,8"
+                                    opacity="0.7"
                                     markerEnd={`url(#arrow-${fromNode.type})`}
                                 />
                             )
@@ -193,17 +213,19 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                             <marker
                                 key={type}
                                 id={`arrow-${type}`}
-                                markerWidth="12"
-                                markerHeight="12"
-                                refX="10"
-                                refY="3"
+                                markerWidth="14"
+                                markerHeight="14"
+                                refX="12"
+                                refY="4"
                                 orient="auto"
                             >
-                                <polygon points="0,0 12,3 0,6" fill={getColor(type)} />
+                                <polygon points="0,0 14,4 0,8" fill={getColor(type)} />
                             </marker>
                         ))}
                     </defs>
                 </svg>
+
+                {/* נודים */}
                 {nodes.map((node) => (
                     <div
                         key={node.id}
@@ -230,8 +252,16 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                             isSelected={selectedNodeId === node.id}
                             isConnecting={connectingFromId === node.id}
                             onSelect={() => onSelectNode(node.id)}
-                            onStartConnection={() => onStartConnection(node.id)}
-                            onCompleteConnection={() => onCompleteConnection(node.id)}
+                            onStartConnection={() => {
+                                if (node.type !== "goal") {
+                                    onStartConnection(node.id)
+                                }
+                            }}
+                            onCompleteConnection={() => {
+                                if (connectingFromId && connectingFromId !== node.id) {
+                                    onCompleteConnection(node.id)
+                                }
+                            }}
                             onDelete={() => onDeleteNode(node.id)}
                             onUpdateData={(data) => onUpdateNodeData(node.id, data)}
                             isDark={isDark}
@@ -242,7 +272,8 @@ const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                 {edges.length === 0 && nodes.length >= 2 && <HelpTutorial isDark={isDark} />}
             </div>
         )
-    })
+    }
+)
 
 Canvas.displayName = "Canvas"
 export default Canvas
