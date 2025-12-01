@@ -1,115 +1,78 @@
 "use client"
 
-import { useState } from "react"
-import { Plus } from "lucide-react"
-import SidebarNav from "@/components/sidebar-nav"
-import GraphCard from "@/components/graph-card"
-import NewGraphModal from "@/components/new-graph-modal"
+import { useParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { apiService } from "@/services/ApiService"
 
-interface GraphListPageProps {
-  params: {
-    operatorId: string
-  }
+interface GraphData {
+  operatorId: string
+  name: string
+  nodes: any[]
+  edges: any[]
 }
 
-export default function GraphsPage({ params }: GraphListPageProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [graphs, setGraphs] = useState([
-    {
-      id: "g-001",
-      name: "Q4 Sales Forecast",
-      goal: "Analyze sales trends and forecast Q4 revenue",
-      createdAt: "2025-01-15T10:30:00Z",
-      updatedAt: "2025-01-20T14:45:00Z",
-    },
-    {
-      id: "g-002",
-      name: "Customer Satisfaction",
-      goal: "Track customer satisfaction metrics",
-      createdAt: "2025-01-10T09:00:00Z",
-      updatedAt: "2025-01-18T11:20:00Z",
-    },
-  ])
+export default function GraphBuilderPage() {
+  const { operatorId, graphId } = useParams()
+  const [graph, setGraph] = useState<GraphData | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  const handleCreateGraph = (data: { name: string; goal: string; tags: string[] }) => {
-    const newGraph = {
-      id: `g-${Date.now()}`,
-      name: data.name,
-      goal: data.goal,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    setGraphs([...graphs, newGraph])
-  }
+  useEffect(() => {
+    if (!operatorId || !graphId) return
 
-  const handleDuplicateGraph = (graphId: string) => {
-    const graph = graphs.find((g) => g.id === graphId)
-    if (graph) {
-      const newGraph = {
-        ...graph,
-        id: `g-${Date.now()}`,
-        name: `${graph.name} (Copy)`,
-        createdAt: new Date().toISOString(),
+    apiService.loadGraph(operatorId as string, graphId as string).then(res => {
+      if (!res.error && res.data) {
+        setGraph(res.data)
       }
-      setGraphs([...graphs, newGraph])
+    })
+  }, [operatorId, graphId])
+
+  const saveGraph = async () => {
+    if (!graph || saving) return
+
+    const confirmed = confirm("Save at graph?")
+    if (!confirmed) return
+
+    setSaving(true)
+    const result = await apiService.updateGraph(graphId as string, graph)
+    setSaving(false)
+
+    if (!result.error) {
+      alert("save successfully!")
+    } else {
+      alert("error")
     }
   }
 
-  const handleDeleteGraph = (graphId: string) => {
-    setGraphs(graphs.filter((g) => g.id !== graphId))
+  if (!graph) {
+    return (
+        <div className="flex h-screen items-center justify-center text-3xl">
+          load graph
+        </div>
+    )
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-black">
-      <SidebarNav operatorId={params.operatorId} />
-
-      <div className="flex-1 overflow-auto">
-        <div className="p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Graphs</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">Manage and organize your graph projects</p>
-            </div>
+      <div className="flex flex-col h-screen bg-gray-50">
+        <div className="bg-white shadow-md px along-8 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold">{graph.name || graphId}</h1>
+          <div className="flex gap-4">
+            <span className="text-sm text-gray-500">מזהה: {graphId}</span>
             <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-lg"
+                onClick={saveGraph}
+                disabled={saving}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
             >
-              <Plus className="w-5 h-5" />
-              New Graph
+              {saving ? "save..." : "save"}
             </button>
           </div>
+        </div>
 
-          {graphs.length === 0 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-12 text-center">
-              <p className="text-gray-600 dark:text-gray-400 mb-4">No graphs created yet</p>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-              >
-                Create your first graph
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {graphs.map((graph) => (
-                <GraphCard
-                  key={graph.id}
-                  id={graph.id}
-                  name={graph.name}
-                  goal={graph.goal}
-                  createdAt={graph.createdAt}
-                  updatedAt={graph.updatedAt}
-                  operatorId={params.operatorId}
-                  onDuplicate={() => handleDuplicateGraph(graph.id)}
-                  onDelete={() => handleDeleteGraph(graph.id)}
-                />
-              ))}
-            </div>
-          )}
+        <div className="flex-1 bg-gray-100">
+          {}
+          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xl">
+            אזור עריכת הגרף – React Flow ייכנס כאן
+          </div>
         </div>
       </div>
-
-      <NewGraphModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreateGraph={handleCreateGraph} />
-    </div>
   )
 }

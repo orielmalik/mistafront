@@ -15,10 +15,11 @@ export interface User {
 
 interface AuthContextType {
     user: User | null
-    login: (userData: User) => void
+    login: (userData: { email: string; username: string }) => void
     logout: () => void
     isOperator: boolean
 }
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 

@@ -1,105 +1,86 @@
+// components/editor.tsx
 "use client"
 
-import type { Node, Edge } from "@/types/graph"
-import QuestionnaireEditor from "@/components/editors/questionnaire-editor"
-import DataEntryEditor from "@/components/editors/data-entry-editor"
-import PersonalityEditor from "@/components/editors/personality-editor"
-import ChatEditor from "@/components/editors/chat-editor"
-import { Button } from "@/components/ui/button"
+import type { Node } from "@/types/graph"
 import { Trash2 } from "lucide-react"
 
+// קבצים שכבר קיימים אצלך ב-./editors
+import QuestionnaireEditor from "./editors/questionnaire-editor"
+import DataEntryEditor from "./editors/data-entry-editor"
+import ChatEditor from "./editors/chat-editor"
+import PersonalityEditor from "./editors/personality-editor"
+
 interface EditorProps {
-  node: Node | undefined
-  edges: Edge[]
-  onUpdateNode: (id: string, data: any) => void
-  onDeleteNode: (id: string) => void
+    node: Node | null
+    onUpdateNode: (updates: Partial<Node["data"]>) => void
+    onDeleteNode: () => void
 }
 
-export default function Editor({ node, edges, onUpdateNode, onDeleteNode }: EditorProps) {
-  if (!node) {
-    return (
-      <div className="w-80 bg-card border-l border-border p-6 flex items-center justify-center text-center text-muted-foreground">
-        <p>Select a node to edit its properties</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="w-80 bg-card border-l border-border p-6 overflow-y-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-bold text-foreground">{node.data.label}</h2>
-          <p className="text-xs text-muted-foreground capitalize">{node.type}</p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onDeleteNode(node.id)}
-          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-
-      <div className="space-y-4 mb-4">
-        <div>
-          <label className="text-xs font-semibold text-foreground mb-1 block">Header</label>
-          <input
-            type="text"
-            value={node.data.header || ""}
-            onChange={(e) => onUpdateNode(node.id, { ...node.data, header: e.target.value })}
-            placeholder="Enter header text"
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-foreground mb-1 block">Label</label>
-          <input
-            type="text"
-            value={node.data.label || ""}
-            onChange={(e) => onUpdateNode(node.id, { ...node.data, label: e.target.value })}
-            placeholder="Enter label text"
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-foreground mb-1 block">Subtitle</label>
-          <input
-            type="text"
-            value={node.data.subtitle || ""}
-            onChange={(e) => onUpdateNode(node.id, { ...node.data, subtitle: e.target.value })}
-            placeholder="Enter subtitle text"
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {node.type === "questionnaire" && (
-          <QuestionnaireEditor node={node} onUpdate={(data) => onUpdateNode(node.id, data)} />
-        )}
-        {node.type === "personality" && (
-          <PersonalityEditor node={node} onUpdate={(data) => onUpdateNode(node.id, data)} />
-        )}
-        {node.type === "dataEntry" && <DataEntryEditor node={node} onUpdate={(data) => onUpdateNode(node.id, data)} />}
-        {node.type === "chat" && <ChatEditor node={node} />}
-
-        {edges.length > 0 && (
-          <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Connected Edges</h3>
-            <div className="space-y-2">
-              {edges.map((edge) => (
-                <div key={edge.id} className="text-xs bg-background p-2 rounded border border-border">
-                  <div className="font-medium text-foreground">Weight: {edge.weight}</div>
-                  <div className="text-muted-foreground">
-                    {edge.from === node.id ? "→" : "←"} {edge.from === node.id ? "to" : "from"} node
-                  </div>
+export default function Editor({ node, onUpdateNode, onDeleteNode }: EditorProps) {
+    if (!node) {
+        return (
+            <div className="w-96 border-l border-border bg-card p-10 text-center text-muted-foreground">
+                <div className="mx-auto w-20 h-20 bg-muted/30 rounded-full flex items-center justify-center mb-6">
+                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                 </div>
-              ))}
+                <p className="text-lg font-medium">Select a node to configure</p>
+                <p className="text-sm mt-2">Click any node on the canvas</p>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+        )
+    }
+
+    const handleUpdate = (updates: Partial<Node["data"]>) => {
+        onUpdateNode(updates)
+    }
+
+    return (
+        <div className="w-96 border-l border-border bg-card flex flex-col h-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+                <div>
+                    <h2 className="text-2xl font-bold">Configure: {node.type}</h2>
+                    <p className="text-sm text-muted-foreground">ID: {node.id}</p>
+                </div>
+                <button
+                    onClick={onDeleteNode}
+                    className="p-2 rounded-lg hover:bg-red-500/10 text-red-600 transition"
+                >
+                    <Trash2 className="w-5 h-5" />
+                </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+                {node.type === "questionnaire" && (
+                    <QuestionnaireEditor node={node} onUpdate={handleUpdate} />
+                )}
+
+                {node.type === "dataEntry" && (
+                    <DataEntryEditor node={node} onUpdate={handleUpdate} />
+                )}
+
+                {node.type === "chat" && (
+                    <ChatEditor node={node} onUpdate={handleUpdate} />
+                )}
+
+                {node.type === "personality" && (
+                    <PersonalityEditor node={node} onUpdate={handleUpdate} />
+                )}
+
+                {![
+                    "questionnaire",
+                    "dataEntry",
+                    "chat",
+                    "personality"
+                ].includes(node.type) && (
+                    <div className="text-center py-16 text-muted-foreground">
+                        <p className="text-lg font-medium">{node.type} Editor</p>
+                        <p className="text-sm mt-2">Coming soon...</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
 }
