@@ -2,7 +2,6 @@ export const API_BASE =process.env.NEXT_PUBLIC_API_BASE;
 
 export const API_ENDPOINTS = {
   CREATE_GRAPH: `${API_BASE}/graph`,
-  LOAD_GRAPH: `${API_BASE}/graph`,
 
   CREATE_HUMAN: `${API_BASE}/human`,
   GET_ALL_HUMANS: `${API_BASE}/human`,

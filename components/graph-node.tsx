@@ -1,135 +1,63 @@
-// components/graph-node.tsx
-"use client"
+import {useState} from "react";
+"use client";
 
-import type { Node } from "@/types/graph"
-import { Trash2, Link2, Lock } from "lucide-react"
-import { useState } from "react"
-
-interface GraphNodeProps {
-    node: Node
-    isSelected: boolean
-    isConnecting: boolean
-    onSelect: () => void
-    onStartConnection: () => void
-    onCompleteConnection: () => void
-    onDelete: () => void
-    isDark?: boolean
-}
-
-const COLORS = {
-    questionnaire: { bg: "bg-blue-600", border: "border-blue-500", glow: "rgb(96, 165, 250)" },
-    personality: { bg: "bg-purple-600", border: "border-purple-500", glow: "rgb(168, 85, 247)" },
-    dataEntry: { bg: "bg-green-600", border: "border-green-500", glow: "rgb(34, 197, 94)" },
-    chat: { bg: "bg-orange-600", border: "border-orange-500", glow: "rgb(249, 115, 22)" },
-    goal: { bg: "bg-emerald-600", border: "border-emerald-500", glow: "rgb(34, 197, 94)" },
-} as const
-
-const LABELS = {
-    questionnaire: "Q",
-    personality: "PI",
-    dataEntry: "DE",
-    chat: "CH",
-    goal: "GOAL",
-} as const
-
-export default function GraphNode({
-                                      node,
-                                      isSelected,
-                                      isConnecting,
-                                      onSelect,
-                                      onStartConnection,
-                                      onCompleteConnection,
-                                      onDelete,
-                                  }: GraphNodeProps) {
+export default function GraphNode({ node, isSelected, isConnecting, onSelect, onStartConnection, onDelete }: Props) {
     const [showTooltip, setShowTooltip] = useState(false)
-    const c = COLORS[node.type]
-    const isGoalNode = node.type === "goal"
+    const isGoal = node.data.type === "goal"
 
     return (
         <div
             onClick={onSelect}
-            className={`
-        relative w-72 p-6 rounded-2xl border-4 shadow-2xl cursor-pointer select-none transition-all
-        ${c.border} ${isSelected ? "scale-105 ring-4 ring-yellow-400 ring-offset-4 ring-offset-transparent" : "hover:scale-105"}
-        ${isConnecting && !isGoalNode ? "animate-pulse ring-8 ring-yellow-400" : ""}
+            className={`relative w-72 p-6 rounded-2xl border-4 shadow-2xl cursor-pointer select-none transition-all
+        ${isSelected ? "scale-105 ring-4 ring-yellow-400" : "hover:scale-105"}
+        ${isConnecting && !isGoal ? "animate-pulse ring-8 ring-yellow-400" : ""}
+        ${isGoal ? "border-emerald-500" : "border-blue-500"}
       `}
-            style={{
-                backgroundColor: "var(--card)",
-                boxShadow: isSelected
-                    ? `0 0 40px ${c.glow}60, 0 15px 35px rgba(0,0,0,0.3)`
-                    : "0 10px 30px rgba(0,0,0,0.2)",
-            }}
+            style={{ backgroundColor: "var(--card)" }}
         >
-            <div className="flex items-center justify-between mb-4">
-                <div className={`${c.bg} w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-black shadow-xl border-4 border-white/90 -rotate-6`}>
-                    {LABELS[node.type]}
+            <div className="flex justify-between mb-4">
+                <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-black">
+                    {isGoal ? "GOAL" : "Q"}
                 </div>
 
-                <div className="flex gap-3">
-                    {/* כפתור חיבור – רק אם לא Goal */}
-                    {!isGoalNode && (
+                <div className="flex gap-2">
+                    {!isGoal && (
                         <button
                             onMouseEnter={() => setShowTooltip(true)}
                             onMouseLeave={() => setShowTooltip(false)}
                             onMouseDown={(e) => {
                                 e.stopPropagation()
-                                onStartConnection() // ← רק מתחיל
+                                onStartConnection()
                             }}
-                            // הסרנו את onMouseUp – לא סוגר חיבור כאן!
-                            className={`p-3 rounded-xl transition-all ${isConnecting ? "bg-yellow-400 text-black scale-125 shadow-xl" : "bg-primary/10 hover:bg-primary/20"}`}
+                            className={`p-3 rounded-xl transition-all ${isConnecting ? "bg-yellow-400 text-black scale-125" : "bg-primary/10 hover:bg-primary/20"}`}
                         >
                             <Link2 className="w-6 h-6" />
                         </button>
                     )}
 
-                    {/* מנעול ל-Goal */}
-                    {isGoalNode && (
+                    {isGoal && (
                         <div className="p-3 rounded-xl bg-emerald-600/20 border-2 border-emerald-500">
                             <Lock className="w-6 h-6 text-emerald-600" />
                         </div>
                     )}
 
-                    {/* טולטיפ */}
-                    {showTooltip && !isGoalNode && (
-                        <div className="absolute top-16 right-0 bg-black text-white text-xs px-3 py-1 rounded-lg z-50 whitespace-nowrap">
-                            Click and drag to connect
+                    {showTooltip && !isGoal && (
+                        <div className="absolute top-16 right-0 bg-black text-white text-xs px-3 py-1 rounded-lg z-50">
+                            Drag & Drop
                         </div>
                     )}
 
-                    {/* מחיקה */}
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            onDelete()
-                        }}
-                        className="p-3 rounded-xl hover:bg-red-500/20 text-red-600 transition-all"
+                        onClick={(e) => { e.stopPropagation(); onDelete() }}
+                        className="p-3 rounded-xl hover:bg-red-500/20 text-red-600"
                     >
                         <Trash2 className="w-6 h-6" />
                     </button>
                 </div>
             </div>
 
-            <div className="space-y-3">
-                {node.data.header ? (
-                    <h3 className="text-2xl font-bold">{node.data.header}</h3>
-                ) : (
-                    <p className="text-muted-foreground italic">Click to edit...</p>
-                )}
-                <p className="text-xl font-bold text-primary">{node.data.label || "Untitled Node"}</p>
-
-                {node.data.goalName && (
-                    <p className="text-lg font-bold text-emerald-600">{node.data.goalName}</p>
-                )}
-
-                {node.data.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-3">{node.data.description}</p>
-                )}
-
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-4">
-                    {node.type}
-                    {isGoalNode && " · Terminal"}
-                </p>
-            </div>
+            <h3 className="text-xl font-bold">{node.data.label || "Untitled"}</h3>
+            {isGoal && <p className="text-emerald-600 font-bold">Final Goal</p>}
         </div>
     )
 }

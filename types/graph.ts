@@ -1,3 +1,5 @@
+import {useState} from "react";
+
 export interface Position {
   x: number
   y: number
@@ -42,9 +44,19 @@ export interface Node {
     fileSize?: number
     fileType?: string
     uploadedAt?: string
+    userFields?: UserField[]
+    collectLocation?: boolean
 
     [key: string]: any
   }
+}
+export interface UserField {
+  fieldName: string
+  operator: "equals" | "contains" | "greater_than" | "less_than" | "between" | "starts_with" | "ends_with" | "custom"
+  value: any
+  value2?: any
+  fieldType: "string" | "number" | "boolean" | "date" | "array" | "unknown"
+  isSystemField: boolean
 }
 
 export interface Edge {
@@ -68,4 +80,6 @@ export interface Graph {
   thumbnail?: string
   goalName?:string
   goalDescription?:string
+  locationEnabled?: boolean
+  locationScore?: number
 }

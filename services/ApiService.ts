@@ -95,12 +95,10 @@ export class ApiService {
     return this.request<T>(this.getUrl(endpoint), "PUT", body, options)
   }
 
-  public async createGraph(graphId: string, graphData: any) {
-    return this.post<void>(`${this.endpoints.GRAPH}/${graphId}`, graphData)
-  }
+
 
   public async updateGraph(graphId: string, graphData: any) {
-    return this.put<void>(`${this.endpoints.GRAPH}/${graphId}`, graphData)
+    return this.post<void>(`${this.endpoints.GRAPH}/${graphId}`, graphData)
   }
 
   public async loadGraph(operatorId: string, graphId: string) {
